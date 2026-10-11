@@ -1,0 +1,24 @@
+/tmp/
+/bin/
+
+# Go build and test artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# macOS and editor files
+.DS_Store
+.vscode/
+.idea/
+
+# Local AI assistant instructions
+CLAUDE.md
+GEMINI.md
+
+# Local SQLite database
+*.db
+*.db-journal

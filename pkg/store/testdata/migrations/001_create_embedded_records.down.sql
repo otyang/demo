@@ -1,0 +1,1 @@
+DROP TABLE embedded_migration_records;

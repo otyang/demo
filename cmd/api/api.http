@@ -1,0 +1,46 @@
+### Requests for the VS Code REST Client extension. Start the API first:
+### go run ./cmd/api
+### With DEMO_AUTH_TEST_CLAIMS=false, add: Authorization: Bearer <token>
+
+@host = http://localhost:3000
+
+### Health
+GET {{host}}/healthz
+
+### Create a task
+# @name created
+POST {{host}}/api/v1/tasks
+Content-Type: application/json
+
+{
+  "title": "Write the README",
+  "notes": "Explain how to add a service"
+}
+
+### List tasks
+GET {{host}}/api/v1/tasks?limit=10
+
+### List finished tasks
+GET {{host}}/api/v1/tasks?done=true
+
+### Get the created task
+GET {{host}}/api/v1/tasks/{{created.response.body.data.id}}
+
+### Mark it done
+PATCH {{host}}/api/v1/tasks/{{created.response.body.data.id}}
+Content-Type: application/json
+
+{
+  "done": true
+}
+
+### Delete it
+DELETE {{host}}/api/v1/tasks/{{created.response.body.data.id}}
+
+### Validation error (422)
+POST {{host}}/api/v1/tasks
+Content-Type: application/json
+
+{
+  "title": ""
+}

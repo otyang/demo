@@ -1,0 +1,270 @@
+openapi: 3.1.0
+info:
+  title: Demo API
+  version: dev
+  description: |
+    An example REST API built on this project's `pkg` and `internal/middleware`
+    packages.
+
+    Every success is written as `{"status": true, "data": ...}`, with a
+    `meta` object on lists. Every error, including unknown routes, is written
+    as `{"status": false, "error": {"code": ..., "message": ...}}`.
+
+    Protected routes need `Authorization: Bearer <JWT>` with an `org_id`
+    claim and a `permissions` array claim. In local mode
+    (`DEMO_AUTH_TEST_CLAIMS=true`) no token is needed.
+servers:
+  - url: http://localhost:3000
+    description: Local
+tags:
+  - name: System
+  - name: Tasks
+    description: A to-do list per organisation. An organisation only ever sees its own tasks.
+
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      summary: Health check
+      description: Reports that the server is up, with its version. It does not check the database.
+      operationId: getHealth
+      responses:
+        "200":
+          description: The server is up.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data]
+                properties:
+                  status: { type: boolean, const: true }
+                  data:
+                    type: object
+                    required: [status, version]
+                    properties:
+                      status: { type: string, example: ok }
+                      version: { type: string, example: dev }
+
+  /api/v1/tasks:
+    get:
+      tags: [Tasks]
+      summary: List tasks
+      description: |
+        Lists the organisation's tasks, newest first. Requires the `tasks:read` permission.
+      operationId: listTasks
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: done
+          in: query
+          description: List only finished (`true`) or open (`false`) tasks.
+          schema: { type: boolean }
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/After"
+      responses:
+        "200":
+          description: A page of tasks.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, data, meta]
+                properties:
+                  status: { type: boolean, const: true }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Task" }
+                  meta: { $ref: "#/components/schemas/PageMeta" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [Tasks]
+      summary: Create a task
+      description: Requires the `tasks:write` permission.
+      operationId: createTask
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTask" }
+      responses:
+        "201": { $ref: "#/components/responses/Task" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+
+  /api/v1/tasks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, example: task_0b7e5a52-3c1f-4d8e-9a3b-2f6c1d9e8a10 }
+    get:
+      tags: [Tasks]
+      summary: Get a task
+      description: Requires the `tasks:read` permission.
+      operationId: getTask
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { $ref: "#/components/responses/Task" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [Tasks]
+      summary: Update a task
+      description: Changes only the fields sent. Requires the `tasks:write` permission.
+      operationId: updateTask
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateTask" }
+      responses:
+        "200": { $ref: "#/components/responses/Task" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/ValidationFailed" }
+    delete:
+      tags: [Tasks]
+      summary: Delete a task
+      description: Requires the `tasks:write` permission.
+      operationId: deleteTask
+      security: [{ bearerAuth: [] }]
+      responses:
+        "204":
+          description: The task was deleted.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      description: Tasks per page, 20 by default and at most 100.
+      schema: { type: integer, minimum: 1, maximum: 100 }
+    After:
+      name: after
+      in: query
+      description: The `nextCursor` of the previous page.
+      schema: { type: string }
+
+  schemas:
+    Task:
+      type: object
+      required: [id, title, notes, done, createdAt, updatedAt]
+      properties:
+        id: { type: string, example: task_0b7e5a52-3c1f-4d8e-9a3b-2f6c1d9e8a10 }
+        title: { type: string, example: Write the README }
+        notes: { type: string, example: Explain how to add a service }
+        done: { type: boolean, example: false }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    CreateTask:
+      type: object
+      required: [title]
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200, example: Write the README }
+        notes: { type: string, maxLength: 2000, example: Explain how to add a service }
+    UpdateTask:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        notes: { type: string, maxLength: 2000 }
+        done: { type: boolean, example: true }
+    PageMeta:
+      type: object
+      required: [limit, hasMore]
+      properties:
+        limit: { type: integer, example: 20 }
+        hasMore: { type: boolean }
+        nextCursor:
+          type: string
+          description: Pass as `after` to get the next page. Absent on the last page.
+    Error:
+      type: object
+      required: [status, error]
+      properties:
+        status: { type: boolean, const: false }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details:
+              type: array
+              description: The fields that failed, on 400 and 422.
+              items:
+                type: object
+                properties:
+                  field: { type: string }
+                  tag: { type: string }
+                  message: { type: string }
+
+  responses:
+    Task:
+      description: The task.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status, data]
+            properties:
+              status: { type: boolean, const: true }
+              data: { $ref: "#/components/schemas/Task" }
+    BadRequest:
+      description: Malformed body, unknown field or query parameter, or invalid pagination.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            status: false
+            error:
+              code: BAD_REQUEST
+              message: Invalid request
+              details: [{ field: colour, tag: unknown, message: colour is not a known field }]
+    Unauthorized:
+      description: Missing or invalid Bearer token.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { status: false, error: { code: UNAUTHORIZED, message: Bearer token is invalid or expired } }
+    Forbidden:
+      description: The token lacks the permission, or names no organisation (`ORG_SETUP_REQUIRED`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { status: false, error: { code: FORBIDDEN, message: Insufficient permissions } }
+    NotFound:
+      description: No such task in the organisation.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { status: false, error: { code: NOT_FOUND, message: Task not found } }
+    ValidationFailed:
+      description: A field breaks a rule.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            status: false
+            error:
+              code: VALIDATION_ERROR
+              message: Request validation failed
+              details: [{ field: title, tag: required, message: title is a required field }]
