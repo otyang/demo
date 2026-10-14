@@ -1,6 +1,6 @@
 # demo
 
-Written by **Young Otutu**.
+Written by **O Young**.
 
 A small base project for Go REST APIs. It is not a framework: it is a set of
 plain packages (`pkg/` and `internal/middleware`) and one example service,
